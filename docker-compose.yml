@@ -1,0 +1,67 @@
+version: "3.8"
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: YES
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"   # puerto AMQP
+      - "15672:15672" # consola web
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
+  inventario_consumer:
+    build:
+      context: .
+      dockerfile: inventario_consumer.Dockerfile
+    container_name: inventario_consumer
+    restart: always
+    depends_on:
+      - rabbitmq
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+
+  outbox_worker:
+    build:
+      context: .
+      dockerfile: outbox_worker.Dockerfile
+    container_name: outbox_worker
+    restart: always
+    depends_on:
+      - mysql
+      - rabbitmq
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - MYSQL_HOST=mysql
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=YES
+
+  orquestador:
+    build:
+      context: .
+      dockerfile: orquestador.Dockerfile
+    container_name: orquestador
+    restart: always
+    depends_on:
+      - mysql
+      - rabbitmq
+    environment:
+      - MYSQL_HOST=mysql
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=YES
+      - RABBITMQ_HOST=rabbitmq
+
+volumes:
+  mysql_data:
